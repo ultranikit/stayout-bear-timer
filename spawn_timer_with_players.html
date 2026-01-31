@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Таймер спавна</title>
+<style>
+body { font-family: Arial, sans-serif; background: #0f172a; color: #e5e7eb; padding: 20px; }
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.reset { padding: 8px 14px; background: #7f1d1d; border: 1px solid #991b1b; color: #fff; border-radius: 6px; cursor: pointer; }
+button.boss, .time-btn { padding: 10px; background: #1e293b; border: 1px solid #334155; color: #fff; border-radius: 6px; cursor: pointer; width: 100%; box-sizing: border-box; text-align: center; font-size: 20px; }
+table { width: 100%; border-collapse: collapse; background: #020617; border-radius: 10px; overflow: hidden; table-layout: fixed; }
+th, td { padding: 8px; border: 1px solid #1e293b; text-align: center; vertical-align: middle; }
+.label { font-weight: bold; text-align: left; }
+.spawn { font-size: 22px; font-weight: bold; }
+.timer { font-size: 18px; display: block; margin-top: 2px; }
+.green { background: #064e3b !important; }
+.yellow { background: #78350f !important; }
+.red { background: #7f1d1d !important; }
+.history { margin-top: 15px; background: #020617; border-radius: 10px; padding: 10px; max-height: 260px; overflow-y: auto; font-size: 13px; }
+.history div { padding: 6px 0; border-bottom: 1px solid #1e293b; }
+.picker { position: absolute; background:#1e293b; border:1px solid #334155; padding:8px; border-radius:6px; z-index:1000; display:none; }
+.picker select { margin:2px; font-size:16px; border-radius:4px; background:#020617; color:#fff; border:1px solid #334155; }
+.picker button { margin-left:4px; font-size:14px; }
+.settings { margin-bottom: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+#unlockDiv { margin-bottom:10px; text-align:center; }
+#unlockBtn { font-size:18px; padding:10px 20px; border-radius:6px; cursor:pointer; background:#2563eb; color:#fff; border:none; }
+
+/* Стили для игроков */
+.players-section { margin-top: 20px; background: #020617; border-radius: 10px; padding: 15px; }
+.players-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.players-header h3 { margin: 0; }
+.add-player-btn { padding: 8px 16px; background: #059669; border: 1px solid #10b981; color: #fff; border-radius: 6px; cursor: pointer; font-size: 16px; }
+.add-player-btn:hover { background: #047857; }
+.players-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.player-card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px; }
+.player-name { font-size: 18px; font-weight: bold; margin-bottom: 12px; color: #60a5fa; text-align: center; }
+.player-stats { display: flex; gap: 10px; margin-bottom: 10px; }
+.stat-item { flex: 1; background: #020617; border-radius: 6px; padding: 8px; text-align: center; }
+.stat-value { font-size: 22px; font-weight: bold; margin: 5px 0; }
+.stat-value.skins { color: #fbbf24; }
+.stat-value.hearts { color: #f87171; }
+.stat-label { font-size: 12px; color: #94a3b8; }
+.player-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.button-group { display: flex; gap: 4px; }
+.player-btn { padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; transition: all 0.2s; }
+.player-btn.plus { background: #059669; color: #fff; }
+.player-btn.plus:hover { background: #047857; }
+.player-btn.minus { background: #dc2626; color: #fff; }
+.player-btn.minus:hover { background: #b91c1c; }
+.player-btn.delete { background: #7f1d1d; color: #fff; }
+.player-btn.delete:hover { background: #991b1b; }
+.player-btn.reset { background: #0369a1; color: #fff; }
+.player-btn.reset:hover { background: #0284c7; }
+
+/* Модальное окно */
+.modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); }
+.modal-content { background-color: #1e293b; margin: 15% auto; padding: 20px; border: 1px solid #334155; border-radius: 10px; width: 90%; max-width: 400px; }
+.modal-header { font-size: 20px; font-weight: bold; margin-bottom: 15px; color: #e5e7eb; }
+.modal-input { width: 100%; padding: 10px; font-size: 16px; border-radius: 6px; background: #020617; color: #fff; border: 1px solid #334155; box-sizing: border-box; margin-bottom: 15px; }
+.modal-buttons { display: flex; gap: 10px; justify-content: flex-end; }
+.modal-btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; }
+.modal-btn.confirm { background: #059669; color: #fff; }
+.modal-btn.confirm:hover { background: #047857; }
+.modal-btn.cancel { background: #64748b; color: #fff; }
+.modal-btn.cancel:hover { background: #475569; }
+</style>
+</head>
+<body>
+
+<div id="unlockDiv">
+    <button id="unlockBtn">Разблокировать звук 🔊</button>
+</div>
+
+<div class="header">
+    <h2>Таймеры спавна</h2>
+    <button class="reset" id="reset">Сбросить всё</button>
+</div>
+
+<div class="settings">
+    <label>🔔 Уведомления <input type="checkbox" id="notifyToggle" checked></label>
+    <label>5 мин <select id="sound5"></select></label>
+    <label>СПАВН <select id="sound0"></select></label>
+    <label>Громкость 5 мин <input type="range" id="volume5" min="0" max="100"></label>
+    <label>Громкость СПАВН <input type="range" id="volume0" min="0" max="100"></label>
+    <button id="test5" class="time-btn">Тест 5 мин</button>
+    <button id="test0" class="time-btn">Тест СПАВН</button>
+</div>
+
+<table>
+<thead>
+<tr id="buttonsRow"></tr>
+<tr id="titles"></tr>
+</thead>
+<tbody>
+<tr id="nextSpawn"></tr>
+<tr id="killedAt"></tr>
+<tr id="manual"></tr>
+</tbody>
+</table>
+
+<div class="history" id="history"></div>
+
+<!-- Секция игроков -->
+<div class="players-section">
+    <div class="players-header">
+        <h3>👥 Игроки и добыча</h3>
+        <button class="add-player-btn" onclick="openPlayerModal()">+ Добавить человека</button>
+    </div>
+    <div class="players-list" id="playersList"></div>
+</div>
+
+<!-- Модальное окно для добавления игрока -->
+<div id="playerModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">Добавить игрока</div>
+        <input type="text" id="playerNameInput" class="modal-input" placeholder="Введите имя игрока" maxlength="30">
+        <div class="modal-buttons">
+            <button class="modal-btn cancel" onclick="closePlayerModal()">Отмена</button>
+            <button class="modal-btn confirm" onclick="addPlayer()">Добавить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для подтверждения действий -->
+<div id="confirmModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header" id="confirmTitle">Подтверждение</div>
+        <div id="confirmMessage" style="margin-bottom: 20px; font-size: 16px;"></div>
+        <div class="modal-buttons">
+            <button class="modal-btn cancel" onclick="closeConfirmModal()">Отмена</button>
+            <button class="modal-btn confirm" onclick="confirmAction()">Подтвердить</button>
+        </div>
+    </div>
+</div>
+
+<div id="timePicker" class="picker">
+    <select id="pickerHours"></select>:<select id="pickerMinutes"></select>
+    <button onclick="pickerSetTime()">OK</button>
+    <button onclick="pickerClose()">Отмена</button>
+</div>
+
+<script>
+const bosses = ["Левый мишка","Правый мишка","Подлодка","Дальний","Нижний","Центральный","Верхний"];
+const T_KEY = "spawnTimers";
+const H_KEY = "spawnHistory";
+const S_KEY = "soundSettings";
+const P_KEY = "players"; // ключ для игроков
+
+let timers = JSON.parse(localStorage.getItem(T_KEY)) || {};
+let history = JSON.parse(localStorage.getItem(H_KEY)) || [];
+let soundSettings = JSON.parse(localStorage.getItem(S_KEY)) || {sound5:"Voicy_Telegram SFX 11.mp3", volume5:50, sound0:"Voicy_Telegram SFX 4.mp3", volume0:50};
+let players = JSON.parse(localStorage.getItem(P_KEY)) || [];
+
+let currentPickerBoss = null;
+
+const buttonsRow = document.getElementById("buttonsRow");
+const titles = document.getElementById("titles");
+const nextSpawn = document.getElementById("nextSpawn");
+const killedAt = document.getElementById("killedAt");
+const manual = document.getElementById("manual");
+const historyDiv = document.getElementById("history");
+const picker = document.getElementById("timePicker");
+const pickerHours = document.getElementById("pickerHours");
+const pickerMinutes = document.getElementById("pickerMinutes");
+
+const notifyToggle = document.getElementById("notifyToggle");
+const sound5 = document.getElementById("sound5");
+const sound0 = document.getElementById("sound0");
+const volume5 = document.getElementById("volume5");
+const volume0 = document.getElementById("volume0");
+const test5 = document.getElementById("test5");
+const test0 = document.getElementById("test0");
+
+const unlockBtn = document.getElementById("unlockBtn");
+let unlocked = false;
+
+const playerModal = document.getElementById("playerModal");
+const playerNameInput = document.getElementById("playerNameInput");
+const playersList = document.getElementById("playersList");
+
+const confirmModal = document.getElementById("confirmModal");
+const confirmTitle = document.getElementById("confirmTitle");
+const confirmMessage = document.getElementById("confirmMessage");
+let confirmCallback = null;
+
+const soundFiles = [
+    "Voicy_Telegram SFX 11.mp3",
+    "Voicy_Telegram SFX 4.mp3",
+    "Voicy_Knife Throw.mp3",
+    "Voicy_iPhone Notification Sound.mp3",
+    "none"
+];
+
+const fmt = d => d.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});
+const countdown = ms => ms<=0?"СПАВН!":`${Math.floor(ms/60000)}:${String(Math.floor(ms/1000)%60).padStart(2,"0")}`;
+const color = diff => diff<=0?"red":diff<=300000?"yellow":"green";
+
+/* ===== ЗАПОЛНЕНИЕ SELECT ===== */
+function initSoundSelects(){
+    soundFiles.forEach(f=>{
+        sound5.innerHTML += `<option value="${f}">${f}</option>`;
+        sound0.innerHTML += `<option value="${f}">${f}</option>`;
+    });
+    sound5.value = soundSettings.sound5;
+    sound0.value = soundSettings.sound0;
+    volume5.value = soundSettings.volume5;
+    volume0.value = soundSettings.volume0;
+}
+
+/* ===== STATIC RENDER ===== */
+function renderStatic(){
+    buttonsRow.innerHTML = `<th></th>` + bosses.map(b=>`<th><button class="boss" onclick="pressBoss('${b}')">${b}</button></th>`).join('');
+    titles.innerHTML = `<th class="label">Титул</th>` + bosses.map(b=>`<th>${b}</th>`).join('');
+    nextSpawn.innerHTML = `<td class="label">Следующий спавн</td>` + bosses.map(b=>{
+        if(!timers[b]) return `<td id="spawn-${b}">-</td>`;
+        const diff = timers[b].ts-Date.now();
+        return `<td id="spawn-${b}" class="${color(diff)} spawn">${timers[b].next}<span class="timer">${countdown(diff)}</span></td>`;
+    }).join('');
+    killedAt.innerHTML = `<td class="label">Был убит</td>` + bosses.map(b=>`<td>${timers[b]?.killed||'-'}</td>`).join('');
+    manual.innerHTML = `<td class="label">Выбрать время</td>` + bosses.map(b=>`<td><button class="time-btn" onclick="pickerOpen(event,'${b}')">${timers[b]?.manual||'Выбрать время'}</button></td>`).join('');
+    historyDiv.innerHTML = history.slice().reverse().map(h=>`<div>🕒 ${h.killed} — <b>${h.name}</b> → ${h.next}</div>`).join('');
+}
+
+/* ===== BUTTON ACTION ===== */
+function pressBoss(b){
+    const now = new Date();
+    const next = new Date(now.getTime()+35*60000);
+    timers[b] = {killed:fmt(now), next:fmt(next), ts:next.getTime(), warned:false, done:false};
+    history.push({name:b,killed:fmt(now),next:fmt(next)});
+    localStorage.setItem(T_KEY,JSON.stringify(timers));
+    localStorage.setItem(H_KEY,JSON.stringify(history));
+    renderStatic();
+}
+
+/* ===== PICKER ===== */
+for(let i=0;i<24;i++) pickerHours.innerHTML+=`<option value="${i}">${i.toString().padStart(2,'0')}</option>`;
+for(let i=0;i<60;i+=1) pickerMinutes.innerHTML+=`<option value="${i}">${i.toString().padStart(2,'0')}</option>`;
+
+function pickerOpen(e,boss){
+    currentPickerBoss = boss;
+    const rect = e.target.getBoundingClientRect();
+    picker.style.top = rect.bottom + window.scrollY + "px";
+    picker.style.left = rect.left + window.scrollX + "px";
+    picker.style.display = "block";
+}
+function pickerClose(){ picker.style.display="none"; }
+function pickerSetTime(){
+    if(!currentPickerBoss) return;
+    const h = parseInt(pickerHours.value);
+    const m = parseInt(pickerMinutes.value);
+    let killed = new Date(); killed.setHours(h,m,0,0);
+    const next = new Date(killed.getTime()+35*60000);
+    if(next.getTime()<=Date.now()) killed.setDate(killed.getDate()-1);
+    timers[currentPickerBoss] = {killed:fmt(killed), next:fmt(next), ts:next.getTime(), manual:`${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`, warned:false, done:false};
+    history.push({name:currentPickerBoss,killed:fmt(killed),next:fmt(next)});
+    localStorage.setItem(T_KEY,JSON.stringify(timers));
+    localStorage.setItem(H_KEY,JSON.stringify(history));
+    renderStatic();
+    pickerClose();
+    currentPickerBoss=null;
+}
+
+/* ===== RESET ===== */
+document.getElementById("reset").onclick=()=>{
+    showConfirmModal(
+        'Сбросить всё',
+        'Вы уверены, что хотите сбросить все таймеры, историю и игроков?',
+        () => {
+            localStorage.clear(); 
+            timers={}; 
+            history=[]; 
+            players=[];
+            soundSettings = {sound5:"Voicy_Telegram SFX 11.mp3", volume5:50, sound0:"Voicy_Telegram SFX 4.mp3", volume0:50};
+            renderStatic(); 
+            renderPlayers();
+            initSoundSelects();
+        }
+    );
+}
+
+/* ===== AUDIO ===== */
+function playSound(file, vol){
+    if(!unlocked || file==="none") return;
+    const audio = new Audio(file);
+    audio.volume = vol/100;
+    audio.play().catch(()=>{});
+}
+
+/* ===== TIMER UPDATE ===== */
+function updateTimers(){
+    const now = Date.now();
+    bosses.forEach(b=>{
+        const t = timers[b];
+        if(!t) return;
+        const diff = t.ts-now;
+        const cell = document.getElementById(`spawn-${b}`);
+        if(cell){cell.className=`${color(diff)} spawn`; cell.querySelector(".timer").textContent=countdown(diff);}
+        if(notifyToggle.checked){
+            if(diff<=300000 && !t.warned && diff>0){ playSound(soundSettings.sound5, soundSettings.volume5); t.warned=true; }
+            if(diff<=0 && !t.done){ playSound(soundSettings.sound0, soundSettings.volume0); t.done=true; }
+        }
+    });
+    renderStatic();
+}
+
+/* ===== TEST BUTTONS ===== */
+test5.onclick=()=>playSound(soundSettings.sound5, soundSettings.volume5);
+test0.onclick=()=>playSound(soundSettings.sound0, soundSettings.volume0);
+
+/* ===== UNLOCK AUDIO ===== */
+(function() {
+    unlocked = true;
+    unlockBtn.style.display = "none";
+    console.log("Аудио разблокировано автоматически");
+})();
+
+/* ===== SAVE SETTINGS ===== */
+sound5.onchange = ()=>{
+    soundSettings.sound5 = sound5.value;
+    localStorage.setItem(S_KEY,JSON.stringify(soundSettings));
+};
+sound0.onchange = ()=>{
+    soundSettings.sound0 = sound0.value;
+    localStorage.setItem(S_KEY,JSON.stringify(soundSettings));
+};
+volume5.oninput = ()=>{
+    soundSettings.volume5 = volume5.value;
+    localStorage.setItem(S_KEY,JSON.stringify(soundSettings));
+};
+volume0.oninput = ()=>{
+    soundSettings.volume0 = volume0.value;
+    localStorage.setItem(S_KEY,JSON.stringify(soundSettings));
+};
+
+/* ===== ФУНКЦИИ ДЛЯ ПОДТВЕРЖДЕНИЯ ===== */
+function showConfirmModal(title, message, callback){
+    confirmTitle.textContent = title;
+    confirmMessage.textContent = message;
+    confirmCallback = callback;
+    confirmModal.style.display = "block";
+}
+
+function closeConfirmModal(){
+    confirmModal.style.display = "none";
+    confirmCallback = null;
+}
+
+function confirmAction(){
+    if(confirmCallback){
+        confirmCallback();
+    }
+    closeConfirmModal();
+}
+
+/* ===== ФУНКЦИИ ДЛЯ ИГРОКОВ ===== */
+function openPlayerModal(){
+    playerNameInput.value = "";
+    playerModal.style.display = "block";
+    playerNameInput.focus();
+}
+
+function closePlayerModal(){
+    playerModal.style.display = "none";
+}
+
+function addPlayer(){
+    const name = playerNameInput.value.trim();
+    if(!name){
+        alert("Введите имя игрока!");
+        return;
+    }
+    
+    // Проверка на дубликаты
+    if(players.some(p => p.name === name)){
+        alert("Игрок с таким именем уже существует!");
+        return;
+    }
+    
+    players.push({name: name, skins: 0, hearts: 0});
+    localStorage.setItem(P_KEY, JSON.stringify(players));
+    renderPlayers();
+    closePlayerModal();
+}
+
+function changeValue(index, type, delta){
+    index = parseInt(index);
+    if(isNaN(index) || !players[index]) return;
+    // Инициализация значения, если оно не существует
+    if(typeof players[index][type] !== 'number') {
+        players[index][type] = 0;
+    }
+    players[index][type] += delta;
+    if(players[index][type] < 0) players[index][type] = 0;
+    localStorage.setItem(P_KEY, JSON.stringify(players));
+    renderPlayers();
+}
+
+function deletePlayer(index){
+    console.log('deletePlayer called with index:', index);
+    index = parseInt(index);
+    
+    if(!players[index]) {
+        console.log('Player not found at index:', index);
+        return;
+    }
+    
+    showConfirmModal(
+        'Удалить игрока',
+        `Вы уверены, что хотите удалить игрока "${players[index].name}"?`,
+        () => {
+            console.log('Deleting player...');
+            players.splice(index, 1);
+            localStorage.setItem(P_KEY, JSON.stringify(players));
+            renderPlayers();
+            console.log('Player deleted successfully');
+        }
+    );
+}
+
+function resetPlayer(index){
+    console.log('resetPlayer called with index:', index);
+    index = parseInt(index);
+    
+    if(!players[index]) {
+        console.log('Player not found at index:', index);
+        return;
+    }
+    
+    showConfirmModal(
+        'Сбросить статистику',
+        `Вы уверены, что хотите сбросить все значения игрока "${players[index].name}" до 0?`,
+        () => {
+            console.log('Resetting player stats...');
+            players[index].skins = 0;
+            players[index].hearts = 0;
+            localStorage.setItem(P_KEY, JSON.stringify(players));
+            renderPlayers();
+            console.log('Player stats reset successfully');
+        }
+    );
+}
+
+function renderPlayers(){
+    if(players.length === 0){
+        playersList.innerHTML = '<div style="text-align:center; color:#64748b; padding:20px;">Нет добавленных игроков</div>';
+        return;
+    }
+    
+    playersList.innerHTML = players.map((player, index) => {
+        // Обеспечиваем наличие значений по умолчанию
+        const skins = player.skins || 0;
+        const hearts = player.hearts || 0;
+        
+        return `
+        <div class="player-card">
+            <div class="player-name">${player.name}</div>
+            
+            <div class="player-stats">
+                <div class="stat-item">
+                    <div class="stat-label">🐻 Шкуры</div>
+                    <div class="stat-value skins">${skins}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">❤️ Сердца</div>
+                    <div class="stat-value hearts">${hearts}</div>
+                </div>
+            </div>
+            
+            <div class="player-buttons">
+                <div class="button-group">
+                    <button class="player-btn minus" onclick="changeValue(${index}, 'skins', -1)">-1</button>
+                    <button class="player-btn plus" onclick="changeValue(${index}, 'skins', 1)">+1</button>
+                </div>
+                <div class="button-group">
+                    <button class="player-btn minus" onclick="changeValue(${index}, 'hearts', -1)">-1</button>
+                    <button class="player-btn plus" onclick="changeValue(${index}, 'hearts', 1)">+1</button>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 8px;">
+                <button class="player-btn reset" onclick="resetPlayer(${index})">🔄 Сбросить</button>
+                <button class="player-btn delete" onclick="deletePlayer(${index})">🗑️ Удалить</button>
+            </div>
+        </div>
+    `;
+    }).join('');
+}
+
+// Закрытие модальных окон по клику вне их
+window.onclick = function(event) {
+    if (event.target === playerModal) {
+        closePlayerModal();
+    }
+    if (event.target === confirmModal) {
+        closeConfirmModal();
+    }
+}
+
+// Добавление игрока по Enter
+playerNameInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        addPlayer();
+    }
+});
+
+/* ===== INIT ===== */
+initSoundSelects();
+renderStatic();
+renderPlayers();
+setInterval(updateTimers,1000);
+</script>
+
+</body>
+</html>
